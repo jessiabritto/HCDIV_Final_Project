@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top 10 Artists - Songs by Duration in 2024</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #000;
+            color: #fff;
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .axis path, .axis line {
+            stroke: #fff;
+        }
+        .axis text {
+            fill: #fff;
+            font-size: 12px;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 8px;
+            font-size: 14px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+            opacity: 0;
+            color: #000;
+        }
+        .stacked-bar:hover {
+            opacity: 0.8;
+        }
+        .legend {
+            font-size: 14px;
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .legend div {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+        }
+        .legend div span {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Top 10 Artists - Songs by Duration in 2024</h1>
+    <div class="chart-container">
+        <svg id="chart" width="1200" height="700"></svg>
+    </div>
+    <div class="legend">
+        <div><span style="background-color: #ffffff;"></span> Short (&lt; 3 min)</div>
+        <div><span style="background-color: #90ee90;"></span> Moderate (3-4 min)</div>
+        <div><span style="background-color: #006400;"></span> Long (&gt; 4 min)</div>
+    </div>
+    <script>
+        const data = [
+            { artist: "Travis Scott", song: "Melt Down", streams: 500000000, duration: 4.06 },
+            { artist: "Travis Scott", song: "Topia Twins", streams: 623700000, duration: 3.43 },
+            { artist: "Travis Scott", song: "FE!N", streams: 753700000, duration: 3.11 },
+
+            { artist: "Bruno Mars", song: "Locked Out of Heaven", streams: 779800000, duration: 3.53 },
+            { artist: "Bruno Mars", song: "Apt", streams: 620200000, duration: 2.49 },
+            { artist: "Bruno Mars", song: "Die With A Smile", streams: 500000000, duration: 4.11 },
+
+            { artist: "Taylor Swift", song: "But Daddy I Love Him", streams: 950500000, duration: 5.4 },
+            { artist: "Taylor Swift", song: "Down Bad", streams: 888500000, duration: 4.21 },
+            { artist: "Taylor Swift", song: "Fortnight", streams: 850000000, duration: 3.48 },
+
+            { artist: "The Weeknd", song: "Young Metro", streams: 910700000, duration: 3.35 },
+            { artist: "The Weeknd", song: "Dancing in the Flames", streams: 776500000, duration: 3.4 },
+            { artist: "The Weeknd", song: "Timeless", streams: 887500000, duration: 4.16 },
+
+            { artist: "Billie Eilish", song: "Lunch", streams: 910100000, duration: 2.59 },
+            { artist: "Billie Eilish", song: "Chihiro", streams: 854500000, duration: 5.03 },
+            { artist: "Billie Eilish", song: "Birds of a Feather", streams: 920000000, duration: 3.3 },
+
+            { artist: "Ed Sheeran", song: "Boat", streams: 875400000, duration: 3.05 },
+            { artist: "Ed Sheeran", song: "Curtains", streams: 780000000, duration: 3.44 },
+            { artist: "Ed Sheeran", song: "Eyes Closed", streams: 700000000, duration: 3.14 },
+
+            { artist: "Post Malone", song: "Guys for That", streams: 920300000, duration: 2.44 },
+            { artist: "Post Malone", song: "Pour Me a Drink", streams: 810400000, duration: 3.15 },
+            { artist: "Post Malone", song: "I Had Some Help", streams: 910000000, duration: 2.58 },
+
+            { artist: "Lady Gaga", song: "Disease", streams: 859800000, duration: 4.34 },
+            { artist: "Lady Gaga", song: "Die With A Smile", streams: 715100000, duration: 4.11 },
+            { artist: "Lady Gaga", song: "Happy Mistakes", streams: 800000000, duration: 4.05 },
+
+            { artist: "Ariana Grande", song: "We Can't Be Friends", streams: 890600000, duration: 3.48 },
+            { artist: "Ariana Grande", song: "Yes, And?", streams: 720100000, duration: 3.34 },
+            { artist: "Ariana Grande", song: "Supernatural", streams: 875500000, duration: 2.43 }
+        ];
+
+        const margin = { top: 50, right: 30, bottom: 100, left: 120 };
+        const width = 1200 - margin.left - margin.right;
+        const height = 700 - margin.top - margin.bottom;
+
+        const colorScale = duration => {
+            if (duration < 3) return "#ffffff"; // Short
+            if (duration <= 4) return "#90ee90"; // Moderate
+            return "#006400"; // Long
+        };
+
+        const svg = d3.select("#chart")
+            .append("g")
+            .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        const groupedData = d3.groups(data, d => d.artist);
+
+        const x = d3.scaleBand()
+            .domain(groupedData.map(d => d[0]))
+            .range([0, width])
+            .padding(0.4);
+
+        const y = d3.scaleLinear()
+            .domain([0, d3.max(groupedData, d => d3.sum(d[1], s => s.streams))])
+            .nice()
+            .range([height, 0]);
+
+        const tooltip = d3.select("body").append("div").attr("class", "tooltip");
+
+        groupedData.forEach(group => {
+            let cumulative = 0;
+            group[1].forEach(song => {
+                song.cumulative = cumulative;
+                cumulative += song.streams;
+            });
+        });
+
+        svg.selectAll("g.artist")
+            .data(groupedData)
+            .enter()
+            .append("g")
+            .attr("transform", d => `translate(${x(d[0])}, 0)`)
+            .selectAll("rect")
+            .data(d => d[1])
+            .enter()
+            .append("rect")
+            .attr("x", 0)
+            .attr("y", d => y(d.cumulative + d.streams))
+            .attr("width", x.bandwidth())
+            .attr("height", d => y(d.cumulative) - y(d.cumulative + d.streams))
+            .attr("fill", d => colorScale(d.duration))
+            .on("mouseover", (event, d) => {
+                tooltip.style("opacity", 1)
+                    .html(`Song: ${d.song}<br>Duration: ${d.duration} min<br>Streams: ${d.streams.toLocaleString()}`)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", () => tooltip.style("opacity", 0));
+
+        svg.append("g").attr("transform", `translate(0, ${height})`)
+            .call(d3.axisBottom(x)).selectAll("text").style("fill", "#fff");
+
+        svg.append("g").call(d3.axisLeft(y).ticks(5))
+            .selectAll("text").style("fill", "#fff");
+    </script>
+</body>
+</html>
