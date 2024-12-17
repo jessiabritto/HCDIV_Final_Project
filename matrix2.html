@@ -1,0 +1,163 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Correlation Matrix Heatmap</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        .heatmap text {
+            font-size: 10px;
+            pointer-events: none;
+        }
+
+        .axis text {
+            font-size: 12px;
+        }
+
+        .title {
+            text-anchor: middle;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h2 style="text-align: center;">Correlation Matrix Heatmap</h2>
+    <div id="heatmap"></div>
+    <script>
+        // Full correlation matrix data
+        const data = [
+            { row: "danceability", col: "danceability", value: 1.00 },
+            { row: "danceability", col: "energy", value: -0.028 },
+            { row: "danceability", col: "loudness", value: 0.042 },
+            { row: "danceability", col: "speechiness", value: 0.178 },
+            { row: "danceability", col: "acousticness", value: -0.122 },
+            { row: "danceability", col: "instrumentalness", value: 0.019 },
+            { row: "danceability", col: "liveness", value: -0.095 },
+            { row: "danceability", col: "tempo", value: -0.189 },
+
+            { row: "energy", col: "danceability", value: -0.028 },
+            { row: "energy", col: "energy", value: 1.00 },
+            { row: "energy", col: "loudness", value: 0.692 },
+            { row: "energy", col: "speechiness", value: 0.0001 },
+            { row: "energy", col: "acousticness", value: -0.550 },
+            { row: "energy", col: "instrumentalness", value: 0.012 },
+            { row: "energy", col: "liveness", value: 0.150 },
+            { row: "energy", col: "tempo", value: 0.123 },
+
+            { row: "loudness", col: "danceability", value: 0.042 },
+            { row: "loudness", col: "energy", value: 0.692 },
+            { row: "loudness", col: "loudness", value: 1.00 },
+            { row: "loudness", col: "speechiness", value: -0.030 },
+            { row: "loudness", col: "acousticness", value: -0.425 },
+            { row: "loudness", col: "instrumentalness", value: -0.131 },
+            { row: "loudness", col: "liveness", value: 0.082 },
+            { row: "loudness", col: "tempo", value: 0.079 },
+
+            { row: "speechiness", col: "danceability", value: 0.178 },
+            { row: "speechiness", col: "energy", value: 0.0001 },
+            { row: "speechiness", col: "loudness", value: -0.030 },
+            { row: "speechiness", col: "speechiness", value: 1.00 },
+            { row: "speechiness", col: "acousticness", value: -0.038 },
+            { row: "speechiness", col: "instrumentalness", value: -0.049 },
+            { row: "speechiness", col: "liveness", value: 0.064 },
+            { row: "speechiness", col: "tempo", value: 0.064 },
+
+            { row: "acousticness", col: "danceability", value: -0.122 },
+            { row: "acousticness", col: "energy", value: -0.550 },
+            { row: "acousticness", col: "loudness", value: -0.425 },
+            { row: "acousticness", col: "speechiness", value: -0.038 },
+            { row: "acousticness", col: "acousticness", value: 1.00 },
+            { row: "acousticness", col: "instrumentalness", value: -0.011 },
+            { row: "acousticness", col: "liveness", value: -0.094 },
+            { row: "acousticness", col: "tempo", value: -0.094 },
+
+            { row: "instrumentalness", col: "danceability", value: 0.019 },
+            { row: "instrumentalness", col: "energy", value: 0.012 },
+            { row: "instrumentalness", col: "loudness", value: -0.131 },
+            { row: "instrumentalness", col: "speechiness", value: -0.049 },
+            { row: "instrumentalness", col: "acousticness", value: -0.011 },
+            { row: "instrumentalness", col: "instrumentalness", value: 1.00 },
+            { row: "instrumentalness", col: "liveness", value: -0.029 },
+            { row: "instrumentalness", col: "tempo", value: 0.030 },
+
+            { row: "liveness", col: "danceability", value: -0.095 },
+            { row: "liveness", col: "energy", value: 0.150 },
+            { row: "liveness", col: "loudness", value: 0.082 },
+            { row: "liveness", col: "speechiness", value: 0.064 },
+            { row: "liveness", col: "acousticness", value: -0.094 },
+            { row: "liveness", col: "instrumentalness", value: -0.029 },
+            { row: "liveness", col: "liveness", value: 1.00 },
+            { row: "liveness", col: "tempo", value: 0.019 },
+
+            { row: "tempo", col: "danceability", value: -0.189 },
+            { row: "tempo", col: "energy", value: 0.123 },
+            { row: "tempo", col: "loudness", value: 0.079 },
+            { row: "tempo", col: "speechiness", value: 0.064 },
+            { row: "tempo", col: "acousticness", value: -0.094 },
+            { row: "tempo", col: "instrumentalness", value: 0.030 },
+            { row: "tempo", col: "liveness", value: 0.019 },
+            { row: "tempo", col: "tempo", value: 1.00 },
+        ];
+
+        const margin = { top: 80, right: 20, bottom: 100, left: 80 };
+        const width = 600 - margin.left - margin.right;
+        const height = 600 - margin.top - margin.bottom;
+
+        const svg = d3.select("#heatmap")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const rows = [...new Set(data.map(d => d.row))];
+        const cols = [...new Set(data.map(d => d.col))];
+
+        const minValue = d3.min(data, d => d.value);
+        const maxValue = d3.max(data, d => d.value);
+
+        // Swap color scale so high correlation is blue
+        const colorScale = d3.scaleSequential(d3.interpolateRdBu).domain([minValue, maxValue]);
+
+        const xScale = d3.scaleBand().domain(cols).range([0, width]).padding(0.05);
+        const yScale = d3.scaleBand().domain(rows).range([0, height]).padding(0.05);
+
+        svg.selectAll("rect")
+            .data(data)
+            .enter().append("rect")
+            .attr("x", d => xScale(d.col))
+            .attr("y", d => yScale(d.row))
+            .attr("width", xScale.bandwidth())
+            .attr("height", yScale.bandwidth())
+            .style("fill", d => colorScale(d.value));
+
+        // Add correlation values as text
+        svg.selectAll("text.value")
+            .data(data)
+            .enter().append("text")
+            .attr("class", "value")
+            .attr("x", d => xScale(d.col) + xScale.bandwidth() / 2)
+            .attr("y", d => yScale(d.row) + yScale.bandwidth() / 2)
+            .attr("text-anchor", "middle")
+            .attr("alignment-baseline", "middle")
+            .style("fill", d => Math.abs(d.value) > 0.5 ? "white" : "black") // Contrast adjustment
+            .text(d => d.value.toFixed(2));
+
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(xScale).tickSize(0))
+            .selectAll("text")
+            .attr("transform", "rotate(-45)")
+            .style("text-anchor", "end");
+
+        svg.append("g").call(d3.axisLeft(yScale).tickSize(0));
+    </script>
+</body>
+</html>
