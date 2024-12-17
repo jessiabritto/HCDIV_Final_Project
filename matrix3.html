@@ -1,0 +1,141 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Correlation Matrix Heatmap</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        .heatmap text {
+            font-size: 10px;
+            pointer-events: none;
+        }
+
+        .axis text {
+            font-size: 12px;
+        }
+
+        .title {
+            text-anchor: middle;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h2 style="text-align: center;">Correlation Matrix Heatmap</h2>
+    <div id="heatmap"></div>
+    <script>
+        // Correlation matrix data
+        const data = [
+            { row: "Track Score", col: "Track Score", value: 1.00 },
+            { row: "Track Score", col: "Spotify Popularity", value: 0.19 },
+            { row: "Track Score", col: "Apple Music Playlist Count", value: 0.40 },
+            { row: "Track Score", col: "Deezer Playlist Count", value: 0.34 },
+            { row: "Track Score", col: "Amazon Playlist Count", value: 0.55 },
+            { row: "Track Score", col: "Spotify Streams", value: 0.25 },
+            { row: "Track Score", col: "YouTube Views", value: 0.21 },
+
+            { row: "Spotify Popularity", col: "Track Score", value: 0.19 },
+            { row: "Spotify Popularity", col: "Spotify Popularity", value: 1.00 },
+            { row: "Spotify Popularity", col: "Apple Music Playlist Count", value: 0.29 },
+            { row: "Spotify Popularity", col: "Deezer Playlist Count", value: 0.24 },
+            { row: "Spotify Popularity", col: "Amazon Playlist Count", value: 0.32 },
+            { row: "Spotify Popularity", col: "Spotify Streams", value: 0.36 },
+            { row: "Spotify Popularity", col: "YouTube Views", value: 0.04 },
+
+            { row: "Apple Music Playlist Count", col: "Track Score", value: 0.40 },
+            { row: "Apple Music Playlist Count", col: "Spotify Popularity", value: 0.29 },
+            { row: "Apple Music Playlist Count", col: "Apple Music Playlist Count", value: 1.00 },
+            { row: "Apple Music Playlist Count", col: "Deezer Playlist Count", value: 0.78 },
+            { row: "Apple Music Playlist Count", col: "Amazon Playlist Count", value: 0.67 },
+            { row: "Apple Music Playlist Count", col: "Spotify Streams", value: 0.74 },
+            { row: "Apple Music Playlist Count", col: "YouTube Views", value: 0.36 },
+
+            { row: "Deezer Playlist Count", col: "Track Score", value: 0.34 },
+            { row: "Deezer Playlist Count", col: "Spotify Popularity", value: 0.24 },
+            { row: "Deezer Playlist Count", col: "Apple Music Playlist Count", value: 0.78 },
+            { row: "Deezer Playlist Count", col: "Deezer Playlist Count", value: 1.00 },
+            { row: "Deezer Playlist Count", col: "Amazon Playlist Count", value: 0.57 },
+            { row: "Deezer Playlist Count", col: "Spotify Streams", value: 0.64 },
+            { row: "Deezer Playlist Count", col: "YouTube Views", value: 0.38 },
+
+            { row: "Amazon Playlist Count", col: "Track Score", value: 0.55 },
+            { row: "Amazon Playlist Count", col: "Spotify Popularity", value: 0.32 },
+            { row: "Amazon Playlist Count", col: "Apple Music Playlist Count", value: 0.67 },
+            { row: "Amazon Playlist Count", col: "Deezer Playlist Count", value: 0.57 },
+            { row: "Amazon Playlist Count", col: "Amazon Playlist Count", value: 1.00 },
+            { row: "Amazon Playlist Count", col: "Spotify Streams", value: 0.46 },
+            { row: "Amazon Playlist Count", col: "YouTube Views", value: 0.21 },
+
+            { row: "Spotify Streams", col: "Track Score", value: 0.25 },
+            { row: "Spotify Streams", col: "Spotify Popularity", value: 0.36 },
+            { row: "Spotify Streams", col: "Apple Music Playlist Count", value: 0.74 },
+            { row: "Spotify Streams", col: "Deezer Playlist Count", value: 0.64 },
+            { row: "Spotify Streams", col: "Amazon Playlist Count", value: 0.46 },
+            { row: "Spotify Streams", col: "Spotify Streams", value: 1.00 },
+            { row: "Spotify Streams", col: "YouTube Views", value: 0.47 },
+
+            { row: "YouTube Views", col: "Track Score", value: 0.21 },
+            { row: "YouTube Views", col: "Spotify Popularity", value: 0.04 },
+            { row: "YouTube Views", col: "Apple Music Playlist Count", value: 0.36 },
+            { row: "YouTube Views", col: "Deezer Playlist Count", value: 0.38 },
+            { row: "YouTube Views", col: "Amazon Playlist Count", value: 0.21 },
+            { row: "YouTube Views", col: "Spotify Streams", value: 0.47 },
+            { row: "YouTube Views", col: "YouTube Views", value: 1.00 }
+        ];
+
+        const margin = { top: 80, right: 20, bottom: 100, left: 80 };
+        const width = 600 - margin.left - margin.right;
+        const height = 600 - margin.top - margin.bottom;
+
+        const svg = d3.select("#heatmap")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const rows = [...new Set(data.map(d => d.row))];
+        const cols = [...new Set(data.map(d => d.col))];
+
+        const minValue = d3.min(data, d => d.value);
+        const maxValue = d3.max(data, d => d.value);
+
+        const colorScale = d3.scaleSequential()
+            .interpolator(d3.interpolateRdBu)
+            .domain([minValue, maxValue]); // Swap to reverse red and blue
+
+        const xScale = d3.scaleBand().domain(cols).range([0, width]).padding(0.05);
+        const yScale = d3.scaleBand().domain(rows).range([0, height]).padding(0.05);
+
+        svg.selectAll("rect")
+            .data(data)
+            .enter().append("rect")
+            .attr("x", d => xScale(d.col))
+            .attr("y", d => yScale(d.row))
+            .attr("width", xScale.bandwidth())
+            .attr("height", yScale.bandwidth())
+            .style("fill", d => colorScale(d.value));
+
+        svg.selectAll("text.value")
+            .data(data)
+            .enter().append("text")
+            .attr("class", "value")
+            .attr("x", d => xScale(d.col) + xScale.bandwidth() / 2)
+            .attr("y", d => yScale(d.row) + yScale.bandwidth() / 2)
+            .attr("text-anchor", "middle")
+            .attr("dy", "0.35em")
+            .style("fill", d => Math.abs(d.value) > 0.5 ? "white" : "black")
+            .text(d => d.value.toFixed(2));
+
+        svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickSize(0)).selectAll("text").attr("transform", "rotate(-45)").style("text-anchor", "end");
+        svg.append("g").call(d3.axisLeft(yScale).tickSize(0));
+    </script>
+</body>
+</html>
