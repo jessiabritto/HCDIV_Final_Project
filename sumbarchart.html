@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Song Length vs Spotify Streams</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .bar {
+            fill: #1DB954;
+            transition: transform 0.5s, fill 0.3s;
+        }
+
+        .bar:hover {
+            fill: orange;
+        }
+
+        .axis path, .axis line {
+            fill: none;
+            stroke: #000;
+            shape-rendering: crispEdges;
+        }
+
+        .label {
+            font-size: 10px;
+            text-anchor: middle;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .bar:hover .label {
+            opacity: 1;
+        }
+
+        #sortButton {
+            margin-top: 20px;
+            padding: 8px 16px;
+            background-color: #1DB954;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        #sortButton:hover {
+            background-color: #17A648;
+        }
+
+        .chart-container {
+            width: 70%;
+        }
+
+        .info-container {
+            width: 28%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-start;
+            padding: 20px;
+            border-left: 1px solid #ddd;
+        }
+
+        .info-box {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        .info-box h3 {
+            margin: 0 0 5px 0;
+            font-size: 14px;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-container">
+        <h1>Title Length vs Spotify Streams</h1>
+        <button id="sortButton">Sort by Streams (Descending)</button>
+        <svg></svg>
+    </div>
+
+    <div class="info-container">
+        <h2>Song Details</h2>
+        <div id="details"></div>
+    </div>
+
+    <script>
+        d3.csv("processed_spotify_streams_2024t.csv").then(data => {
+            // Data preprocessing
+            data.forEach(d => {
+                d["Spotify Streams"] = +d["Spotify Streams"].replace(/,/g, "");
+                d["TrackNameLength"] = +d["TrackNameLength"];
+            });
+
+            // Filter and group data
+            const filteredData = data.filter(d => d["TrackNameLength"] <= 50);
+            const groupedData = Array.from(d3.rollup(filteredData, v => d3.sum(v, d => d["Spotify Streams"]), d => d["TrackNameLength"]),
+                ([key, value]) => ({ trackLength: key, spotifyStreams: value }));
+
+            const margin = { top: 20, right: 30, bottom: 60, left: 90 };
+            const width = 800 - margin.left - margin.right;
+            const height = 500 - margin.top - margin.bottom;
+
+            const svg = d3.select("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            let x = d3.scaleBand().range([0, width]).padding(0.2);
+            let y = d3.scaleLinear().range([height, 0]);
+            let isSortedByStreams = false;
+
+            function updateDetails(trackLength) {
+                const songs = filteredData
+                    .filter(d => d["TrackNameLength"] === trackLength)
+                    .sort((a, b) => d3.descending(a["Spotify Streams"], b["Spotify Streams"]))
+                    .slice(0, 4); // Top 4 songs
+
+                const detailsDiv = d3.select("#details");
+                detailsDiv.selectAll(".info-box").remove(); // Clear previous entries
+
+                songs.forEach(song => {
+                    const box = detailsDiv.append("div").attr("class", "info-box");
+                    box.append("h3").text(song["Track"]);
+                    box.append("p").text(`Album: ${song["Album Name"]}`);
+                    box.append("p").text(`Artist: ${song["Artist"]}`);
+                    box.append("p").text(`Release Date: ${song["Release Date"]}`);
+                    box.append("p").text(`Streams: ${song["Spotify Streams"].toLocaleString()}`);
+                });
+            }
+
+            function updateChart(data) {
+                x.domain(data.map(d => d.trackLength));
+                y.domain([0, d3.max(data, d => d.spotifyStreams) * 1.1]).nice();
+
+                svg.select(".x-axis").remove();
+                svg.append("g")
+                    .attr("class", "x-axis")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(x))
+                    .selectAll("text")
+                    .attr("transform", "rotate(-45)")
+                    .style("text-anchor", "end");
+
+                svg.select(".y-axis").remove();
+                svg.append("g")
+                    .attr("class", "y-axis")
+                    .call(d3.axisLeft(y).tickFormat(d => {
+                        if (d >= 1e9) return (d / 1e9).toFixed(1) + "B";
+                        if (d >= 1e6) return (d / 1e6).toFixed(0) + "M";
+                        return d3.format(",")(d);
+                    }));
+
+                const bars = svg.selectAll(".bar").data(data, d => d.trackLength);
+                bars.exit().remove();
+
+                const barsEnter = bars.enter().append("g").attr("class", "bar");
+
+                barsEnter.append("rect")
+                    .attr("x", d => x(d.trackLength))
+                    .attr("y", d => y(d.spotifyStreams))
+                    .attr("width", x.bandwidth())
+                    .attr("height", d => height - y(d.spotifyStreams))
+                    .on("mouseover", function (event, d) {
+                        d3.select(this).style("fill", "orange");
+                        updateDetails(d.trackLength);
+                    })
+                    .on("mouseout", function () {
+                        d3.select(this).style("fill", "#1DB954");
+                    });
+
+                barsEnter.append("text")
+                    .attr("class", "label")
+                    .attr("x", d => x(d.trackLength) + x.bandwidth() / 2)
+                    .attr("y", d => y(d.spotifyStreams) - 5)
+                    .text(d => d.spotifyStreams.toLocaleString());
+
+                bars.select("rect")
+                    .transition()
+                    .duration(750)
+                    .attr("x", d => x(d.trackLength))
+                    .attr("y", d => y(d.spotifyStreams))
+                    .attr("height", d => height - y(d.spotifyStreams))
+                    .attr("width", x.bandwidth());
+            }
+
+            groupedData.sort((a, b) => d3.ascending(a.trackLength, b.trackLength));
+            updateChart(groupedData);
+
+            d3.select("#sortButton").on("click", () => {
+                isSortedByStreams = !isSortedByStreams;
+                if (isSortedByStreams) {
+                    groupedData.sort((a, b) => d3.descending(a.spotifyStreams, b.spotifyStreams));
+                    d3.select("#sortButton").text("Sort by Track Length");
+                } else {
+                    groupedData.sort((a, b) => d3.ascending(a.trackLength, b.trackLength));
+                    d3.select("#sortButton").text("Sort by Streams (Descending)");
+                }
+                updateChart(groupedData);
+            });
+        }).catch(error => console.error("Error loading data:", error));
+    </script>
+</body>
+</html>
